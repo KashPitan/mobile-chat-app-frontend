@@ -1,5 +1,6 @@
-import { StatusBar } from "expo-status-bar";
 import React, { useState, useEffect } from "react";
+import { Appbar } from "react-native-paper";
+
 import {
   StyleSheet,
   Text,
@@ -8,50 +9,53 @@ import {
   TextInput,
   Keyboard,
 } from "react-native";
-import io from "socket.io-client";
+import { io } from "socket.io-client";
+import MessageList from "./Components/MessageList";
+
+const socket = io(
+  /*"http://192.168.0.62:8080"*/ "http://chatserver-env.eba-htiphrhi.eu-west-2.elasticbeanstalk.com/",
+  {
+    transports: ["websocket"],
+    jsonp: false,
+  }
+);
 
 const App = () => {
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState([]);
-  var socket = io("http://192.168.0.62:8080", {
-    transports: ["websocket"],
-    jsonp: false,
-  });
 
-  componentDidMount = () => {};
+  const [username, setUsername] = useState("");
+  const [isNameSet, setIsNameSet] = useState(false);
+
   useEffect(() => {
-    // fetch("http://192.168.0.62:8080/")
-    //   .then((res) => {
-    //     return res.json();
-    //   })
-    //   .then((res) => {
-    //     console.log(res);
-    //   })
-    //   .catch((err) => {
-    //     console.log("Server Error");
-    //     console.log(err);
-    //   });
-
     socket.connect();
+
     socket.on("connect", () => {
       console.log("connected to socket server");
     });
+
+    socket.on("messages", (data) => {
+      setMessages((prevState) => data);
+    });
+
     socket.on("chat", (data) => {
-      console.log(data);
+      setMessages((prevState) => [...prevState, data]);
     });
   }, []);
 
   const sendMessage = () => {
-    socket.emit("chat", messageInput);
+    socket.emit("chat", { user: username, message: messageInput });
     setMessageInput("");
     Keyboard.dismiss();
   };
 
   return (
     <>
+      <Appbar.Header>
+        <Appbar.Content title={"chatting as: " + (isNameSet ? username : "")} />
+      </Appbar.Header>
       <View style={styles.container}>
-        <Text>Omon chat</Text>
-        <StatusBar style="auto" />
+        <MessageList messages={messages}></MessageList>
       </View>
       <TextInput
         style={styles.messageBox}
@@ -60,6 +64,17 @@ const App = () => {
         value={messageInput}
       ></TextInput>
       <Button title="Send" onPress={() => sendMessage()}></Button>
+      {!isNameSet && (
+        <>
+          <TextInput
+            style={styles.messageBox}
+            placeholder="enter a username..."
+            value={username}
+            onChangeText={(name) => setUsername(name)}
+          ></TextInput>
+          <Button title="Send" onPress={() => setIsNameSet(true)}></Button>
+        </>
+      )}
     </>
   );
 };
